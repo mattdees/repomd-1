@@ -1,8 +1,9 @@
 import datetime
 import bz2
 import gzip
+import lzma
 import io
-import lxml
+from lxml import etree
 import pathlib
 import urllib.request
 import urllib.parse
@@ -31,7 +32,7 @@ class RepoMD():
         self.repomd_path = self.path / 'repodata' / 'repomd.xml'
         self.repomd_url = self.base._replace(path=str(self.repomd_path)).geturl()
         with urllib.request.urlopen(self.repomd_url) as response:
-            self.repomd_xml = lxml.etree.fromstring(response.read())
+            self.repomd_xml = etree.fromstring(response.read())
 
     def get_repo_file_url(self, href_name):
         find_query = 'repo:data[@type="{}"]/repo:location'.format(href_name)
@@ -64,6 +65,10 @@ class RepoMD():
                 if primary_url.endswith('.bz2'):
                     with bz2.BZ2File(compressed) as uncompressed:
                         return uncompressed.read()
+                if primary_url.endswith('.xz'):
+                    with lzma.LZMAFile(compressed) as uncompressed:
+                        return uncompressed.read()
+                raise NameError("Unknown primary repofile format: {primary_url}, supported formed are .gz, .bz2, .xz")
 
 
 def load(baseurl):
@@ -80,6 +85,18 @@ def load(baseurl):
         primary_contents = repomd_obj.get_repo_file_contents('primary')
         repo_obj = XmlRepo(baseurl, primary_contents)
     return repo_obj
+
+
+def load_mirrorlist(mirrorlist_url):
+    mirrorlist = []
+    with urllib.request.urlopen(mirrorlist_url) as response:
+        mirrorlist = response.read().splitlines()
+    for repo_url in mirrorlist:
+        try:
+            return load(repo_url.decode("utf-8"))
+        except NameError:
+            pass
+    raise NameError(f"Could not find a valid repository in mirrorlist {mirrorlist_url}")
 
 
 class BasePackage:
@@ -293,7 +310,7 @@ class XmlRepo(BaseRepo):
 
     def __init__(self, baseurl, metadata):
         self.baseurl = baseurl
-        self._metadata = lxml.etree.fromstring(metadata)
+        self._metadata = etree.fromstring(metadata)
 
     def __repr__(self):
         return f'<{self.__class__.__name__}: "{self.baseurl}">'
