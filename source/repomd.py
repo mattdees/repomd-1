@@ -2,7 +2,7 @@ import datetime
 import bz2
 import gzip
 import io
-import defusedxml.lxml
+import lxml
 import pathlib
 import urllib.request
 import urllib.parse
@@ -31,7 +31,7 @@ class RepoMD():
         self.repomd_path = self.path / 'repodata' / 'repomd.xml'
         self.repomd_url = self.base._replace(path=str(self.repomd_path)).geturl()
         with urllib.request.urlopen(self.repomd_url) as response:
-            self.repomd_xml = defusedxml.lxml.fromstring(response.read())
+            self.repomd_xml = lxml.etree.fromstring(response.read())
 
     def get_repo_file_url(self, href_name):
         find_query = 'repo:data[@type="{}"]/repo:location'.format(href_name)
@@ -293,7 +293,7 @@ class XmlRepo(BaseRepo):
 
     def __init__(self, baseurl, metadata):
         self.baseurl = baseurl
-        self._metadata = defusedxml.lxml.fromstring(metadata)
+        self._metadata = lxml.etree.fromstring(metadata)
 
     def __repr__(self):
         return f'<{self.__class__.__name__}: "{self.baseurl}">'
